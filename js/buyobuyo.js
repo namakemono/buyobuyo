@@ -86,8 +86,7 @@ var Puyo = function(r, c){
 var field = Matrix(FIELD_ROW_MAX, FIELD_COL_MAX, BLOCK_TYPE_NONE);
 var controllable = true;
 $(function() {
-    var canvas = document.getElementById("field");
-    var ctx = canvas.getContext("2d");
+    var ctx = $("canvas")[0].getContext("2d");
     var frame_count = 0;
     // 落下ぷよの生成
     var puyopuyo = [];

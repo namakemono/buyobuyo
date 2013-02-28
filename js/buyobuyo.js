@@ -83,6 +83,18 @@ var Puyo = function(r, c){
   };
 };
 
+/**
+ * ハーピー積み
+ */
+var AI = function(tr, tc) {
+  this.tr = tr;
+  this.tc = tc;
+  this.next = function() {
+    if ( this.tc == 0 ) this.tc = FIELD_COL_MAX - 1;
+    else this.tc = 0;
+  };
+};
+
 var field = Matrix(FIELD_ROW_MAX, FIELD_COL_MAX, BLOCK_TYPE_NONE);
 var controllable = true;
 $(function() {
@@ -92,6 +104,7 @@ $(function() {
     var puyopuyo = [];
     puyopuyo.push( new Puyo(0, FIELD_COL_MAX / 2) );
     puyopuyo.push( new Puyo(1, FIELD_COL_MAX / 2) );
+    var ai = new AI(FIELD_ROW_MAX, 0);
     var inField = function(tr, tc){
       return ( 0 <= tr && tr < FIELD_ROW_MAX && 0 <= tc && tc < FIELD_COL_MAX );
     };
@@ -105,8 +118,6 @@ $(function() {
     function canMove(){
         for ( var i = 0; i < puyopuyo.length; ++i ){
             var nr = puyopuyo[i].r, nc = puyopuyo[i].c;
-            // ぷよの自然落下
-            if ( frame_count % 4 == 0 ) ++nr;
             // updating phase
             if ( onPressed(INPUT_KEY_DOWN) ) ++nr;
             if ( onPressed(INPUT_KEY_LEFT) ) --nc;
@@ -132,8 +143,6 @@ $(function() {
         if ( frame_count % 3 != 0 ) return;
         for ( var i = 0; i < puyopuyo.length; ++i ){
             var nr = puyopuyo[i].r, nc = puyopuyo[i].c;
-            // ぷよの自然落下
-            if ( frame_count % 4 == 0 ) ++nr;
             // updating phase
             if ( onPressed(INPUT_KEY_DOWN) ) ++nr;
             if ( onPressed(INPUT_KEY_LEFT) ) --nc;
@@ -221,9 +230,18 @@ $(function() {
     };
     function update() {
       if ( controllable ){
-        if ( canMove() ){
-          move();
+        // ai calculation.
+        _input_keys[INPUT_KEY_LEFT] = _input_keys[INPUT_KEY_RIGHT] = _input_keys[INPUT_KEY_DOWN] = false;
+        if ( ai.tc < puyopuyo[0].c && !collision(puyopuyo[0].r, puyopuyo[0].c -1) ) { _input_keys[INPUT_KEY_LEFT] = true; }
+        else if ( puyopuyo[0].c < ai.tc && !collision(puyopuyo[0].r, puyopuyo[0].c + 1) ) { _input_keys[INPUT_KEY_RIGHT] = true; }
+        if ( puyopuyo[0].r < ai.tr ) { _input_keys[INPUT_KEY_DOWN] = true; }
+        if ( frame_count % 12 == 0 ) { // 自然落下
+          for ( var i = 0; i < puyopuyo.length; ++i ) {
+            ++puyopuyo[i].r;
+          }
         }
+        // 移動
+        if ( canMove() ) move();
         // 着地する
         for ( var i = 0; i < puyopuyo.length; ++i ){
           var r = puyopuyo[i].r;
@@ -246,6 +264,7 @@ $(function() {
           for ( i = 0; i < puyopuyo.length; ++i ){
             puyopuyo[i] = new Puyo(i, FIELD_COL_MAX / 2);
           }
+          ai.next();
           controllable = true;
         }
       }
@@ -275,6 +294,7 @@ $(function() {
       render();
     };
     window.document.onkeydown = function(event){
+      console.log(event.keyCode);
       _input_keys[event.keyCode] = true;
     };
     window.document.onkeyup = function(event){

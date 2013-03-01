@@ -79,20 +79,25 @@ function collision(tr, tc){
 /**
  * ハーピー積み
  */
-var AI = function(tr, tc) {
+var AI = function(tr, tc, rotate_num) {
   this.tr = tr;
   this.tc = tc;
+  this.rotate_num = rotate_num;
+  this.rotate_cnt = 0;
   this.next = function() {
     if ( this.tc == 0 ) this.tc = FIELD_COL_MAX - 1;
     else this.tc = 0;
+    this.rotate_cnt = 0;
   };
   this.calculate = function(puyopuyo) {
     // ai calculation.
     Input.release(KeyCode.Left);
     Input.release(KeyCode.Right);
     Input.release(KeyCode.Down);
-    if ( this.tc < puyopuyo[0].c && !collision(puyopuyo[0].r, puyopuyo[0].c -1) ) { Input.press(KeyCode.Left); }
-    else if ( puyopuyo[0].c < this.tc && !collision(puyopuyo[0].r, puyopuyo[0].c + 1) ) { Input.press(KeyCode.Right); }
+    Input.release(KeyCode.Z);
+    if ( this.rotate_cnt < this.rotate_num ) { Input.press(KeyCode.Z); ++this.rotate_cnt; }
+    if ( this.tc < puyopuyo[0].c && !puyopuyo.collision(0, -1) ) { Input.press(KeyCode.Left); }
+    else if ( puyopuyo[0].c < this.tc && !puyopuyo.collision(0, 1) ) { Input.press(KeyCode.Right); }
     if ( puyopuyo[0].r < this.tr ) { Input.press(KeyCode.Down); }
   };
 };
@@ -113,7 +118,7 @@ $(function() {
     }
   };
 
-  var ai = new AI(FIELD_ROW_MAX, 0);
+  var ai = new AI(FIELD_ROW_MAX, 0, 1);
   puyopuyo.center = function() { return {r: this[0].r, c: this[0].c}; }
   puyopuyo.canMove = function(){
     for ( var i = 0; i < this.length; ++i ){
@@ -140,7 +145,6 @@ $(function() {
     return true;
   };
   puyopuyo.move = function(){
-    if ( frame_count % 3 != 0 ) return;
     for ( var i = 0; i < this.length; ++i ){
       var nr = puyopuyo[i].r, nc = puyopuyo[i].c;
       // updating phase
@@ -161,6 +165,14 @@ $(function() {
         this[i].c = nc;
       }
     }
+  };
+  puyopuyo.collision = function(dr, dc) {
+    for ( var i = 0; i < this.length; ++i ) {
+      if ( collision(this[i].r + dr, this[i].c + dc) ) {
+        return true;
+      }
+    }
+    return false;
   };
   field.droppable = function(){
     for ( var r = FIELD_ROW_MAX-2; r >= 0; --r ){

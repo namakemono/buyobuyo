@@ -79,15 +79,45 @@ function collision(tr, tc){
 /**
  * ハーピー積み
  */
-var AI = function(tr, tc, rotate_num) {
-  this.tr = tr;
-  this.tc = tc;
-  this.rotate_num = rotate_num;
+var AI = function(field) {
+  this.tr = FIELD_ROW_MAX - 1;
+  this.tc = 0;
+  this.rotate_num = 0;
   this.rotate_cnt = 0;
-  this.next = function() {
-    if ( this.tc == 0 ) this.tc = FIELD_COL_MAX - 1;
-    else this.tc = 0;
+  this.field = field;
+  /**
+   * @param Puyopuyo puyopuyo
+   * @param int cr candicate row
+   * @param int cc candidate column
+   * @return evaluate value
+   */
+  this.evaluate = function(puyopuyo, tr, tc, rnum) {
+    if ( rnum == 0 && puyopuyo[1].type == this.field[tr+1][tc] ) {
+      return 1000;
+    } else if ( rnum == 2 && puyopuyo[0].type == this.field[tr+1][tc] ) {
+      return 1000;
+    }
+    // なるだけ下に積める方が評価値が高いようにしている．
+    return tr;
+  };
+  this.next = function(puyopuyo) {
     this.rotate_cnt = 0;
+    var eval_max = 0;
+    for ( var c = 0; c < FIELD_COL_MAX; ++c ) {
+      for ( var r = FIELD_ROW_MAX - 2; r > 2; --r ) {
+        for ( var rnum = 0; rnum <= 2; rnum += 2 ) {
+          if ( this.field[r][c] == BLOCK_TYPE_NONE ) {
+            var cur_eval = this.evaluate(puyopuyo, r, c, rnum);
+            if ( eval_max < cur_eval ) {
+              this.tr = r;
+              this.tc = c;
+              this.rotate_num = rnum;
+              eval_max = cur_eval;
+            }
+          }
+        }
+      }
+    }
   };
   this.calculate = function(puyopuyo) {
     // ai calculation.
@@ -95,14 +125,18 @@ var AI = function(tr, tc, rotate_num) {
     Input.release(KeyCode.Right);
     Input.release(KeyCode.Down);
     Input.release(KeyCode.Z);
+    // 回転 -> 左右移動 -> 下移動の順に優先
     if ( this.rotate_cnt < this.rotate_num ) { Input.press(KeyCode.Z); ++this.rotate_cnt; }
-    if ( this.tc < puyopuyo[0].c && !puyopuyo.collision(0, -1) ) { Input.press(KeyCode.Left); }
+    else if ( this.tc < puyopuyo[0].c && !puyopuyo.collision(0, -1) ) { Input.press(KeyCode.Left); }
     else if ( puyopuyo[0].c < this.tc && !puyopuyo.collision(0, 1) ) { Input.press(KeyCode.Right); }
-    if ( puyopuyo[0].r < this.tr ) { Input.press(KeyCode.Down); }
+    else if ( puyopuyo[0].r < this.tr ) { Input.press(KeyCode.Down); }
   };
 };
 
 var field = Matrix(FIELD_ROW_MAX, FIELD_COL_MAX, BLOCK_TYPE_NONE);
+
+var cur_chained_num = 0;
+var max_chained_num = 0;
 var controllable = true;
 $(function() {
   var ctx = $("canvas")[0].getContext("2d");
@@ -118,7 +152,7 @@ $(function() {
     }
   };
 
-  var ai = new AI(FIELD_ROW_MAX, 0, 1);
+  var ai = new AI(field);
   puyopuyo.center = function() { return {r: this[0].r, c: this[0].c}; }
   puyopuyo.canMove = function(){
     for ( var i = 0; i < this.length; ++i ){
@@ -274,11 +308,17 @@ $(function() {
     } else {
       if ( field.droppable() ){ // 落下しているぷよが存在
         field.drop();
-      } else if ( !erased() ){ // 消去できるぷよが存在しない場合は次のぷよを落下
+      } else if ( erased() ) {
+        ++cur_chained_num;
+        max_chained_num = Math.max(max_chained_num, cur_chained_num);
+        $("#cur_chained_num").text(cur_chained_num);
+        $("#max_chained_num").text(max_chained_num);
+      } else { // 消去できるぷよが存在しない場合は次のぷよを落下
+        cur_chained_num = 0;
         for ( i = 0; i < puyopuyo.length; ++i ){
           puyopuyo[i] = new Puyo(i, FIELD_COL_MAX / 2);
         }
-        ai.next();
+        ai.next(puyopuyo);
         controllable = true;
       }
     }

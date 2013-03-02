@@ -5,13 +5,13 @@ var CELL_SIZE     = 24;
 var FIELD_WIDTH   = 720;
 var FIELD_HIGHT   = 480;
 // Number of Puyo
-var PUYO_TYPE_NUM   = 5; // ぷよぷよの種類
+var PUYO_TYPE_NUM     = 5; // ぷよぷよの種類
 var BLOCK_TYPE_NONE   = 0;
 var BLOCK_TYPE_BLUE   = 1; // blue
 var BLOCK_TYPE_GREEN  = 2; // green
-var BLOCK_TYPE_PURPLE   = 3; // purple
+var BLOCK_TYPE_PURPLE = 3; // purple
 var BLOCK_TYPE_RED    = 4; // red
-var BLOCK_TYPE_YELLOW   = 5; // yellow
+var BLOCK_TYPE_YELLOW = 5; // yellow
 var BLOCK_TYPE_OJAMA  = 6; // ojama
 var BLOCK_TYPE_WALL   = 7; // wall
 // 各ぷよぷよの画像ファイル名
@@ -92,19 +92,34 @@ var AI = function(field) {
    * @return evaluate value
    */
   this.evaluate = function(puyopuyo, tr, tc, rnum) {
-    if ( rnum == 0 && puyopuyo[1].type == this.field[tr+1][tc] ) {
-      return 1000;
-    } else if ( rnum == 2 && puyopuyo[0].type == this.field[tr+1][tc] ) {
-      return 1000;
+    var dc = [1, 0, -1, 0];
+    var dr = [0, 1, 0, -1];
+    var res = tr;
+    if ( rnum == 0 ) { // 無回転
+      for ( var i = 0; i < 4; ++i ) {
+        var nr = tr + dr[i];
+        var nc = tc + dc[i];
+        if ( inField(nr, nc) && puyopuyo[1].type == this.field[nr][nc] ) {
+          res += 1000;
+        }
+      }
+    } else if ( rnum == 2 ) { // 180 度回転
+      for ( var i = 0; i < 4; ++i ) {
+        var nr = tr + dr[i];
+        var nc = tc + dc[i];
+        if ( inField(nr, nc) && puyopuyo[0].type == this.field[nr][nc] ) {
+          res += 1000;
+        }
+      }
     }
     // なるだけ下に積める方が評価値が高いようにしている．
-    return tr;
+    return res;
   };
   this.next = function(puyopuyo) {
     this.rotate_cnt = 0;
     var eval_max = 0;
     for ( var c = 0; c < FIELD_COL_MAX; ++c ) {
-      for ( var r = FIELD_ROW_MAX - 2; r > 2; --r ) {
+      for ( var r = FIELD_ROW_MAX - 1; r > 3; --r ) {
         for ( var rnum = 0; rnum <= 2; rnum += 2 ) {
           if ( this.field[r][c] == BLOCK_TYPE_NONE ) {
             var cur_eval = this.evaluate(puyopuyo, r, c, rnum);
@@ -127,9 +142,9 @@ var AI = function(field) {
     Input.release(KeyCode.Z);
     // 回転 -> 左右移動 -> 下移動の順に優先
     if ( this.rotate_cnt < this.rotate_num ) { Input.press(KeyCode.Z); ++this.rotate_cnt; }
-    else if ( this.tc < puyopuyo[0].c && !puyopuyo.collision(0, -1) ) { Input.press(KeyCode.Left); }
+    if ( this.tc < puyopuyo[0].c && !puyopuyo.collision(0, -1) ) { Input.press(KeyCode.Left); }
     else if ( puyopuyo[0].c < this.tc && !puyopuyo.collision(0, 1) ) { Input.press(KeyCode.Right); }
-    else if ( puyopuyo[0].r < this.tr ) { Input.press(KeyCode.Down); }
+    if ( puyopuyo[0].r < this.tr ) { Input.press(KeyCode.Down); }
   };
 };
 
@@ -287,7 +302,9 @@ $(function() {
   };
   function update() {
     if ( controllable ){
-      ai.calculate(puyopuyo);
+      if ( true ) { // Input.onPressed(KeyCode.Shift) ) {
+        ai.calculate(puyopuyo);
+      }
       // fall down
       if ( frame_count % 12 == 0 ) puyopuyo.fall();
       // move
@@ -311,8 +328,6 @@ $(function() {
       } else if ( erased() ) {
         ++cur_chained_num;
         max_chained_num = Math.max(max_chained_num, cur_chained_num);
-        $("#cur_chained_num").text(cur_chained_num);
-        $("#max_chained_num").text(max_chained_num);
       } else { // 消去できるぷよが存在しない場合は次のぷよを落下
         cur_chained_num = 0;
         for ( i = 0; i < puyopuyo.length; ++i ){
@@ -329,6 +344,10 @@ $(function() {
     ctx.clearRect(0, 0, FIELD_WIDTH, FIELD_HIGHT);
     field.render(ctx);
     puyopuyo.render(ctx);
+
+    $("#cur_chained_num").text(cur_chained_num);
+    $("#max_chained_num").text(max_chained_num);
+    $("#elapsed_time").text(Math.floor(frame_count / FPS));
   };
   function main() {
     update();

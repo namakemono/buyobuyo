@@ -1,3 +1,11 @@
+//
+//  buyobuyo.js
+//  buyobuyo
+//
+//  Created by nishimori-m
+//  Copyright (c) 2013 nishimori-m. All rights reserved.
+//
+
 var FPS = 30;
 var FIELD_COL_MAX   = 6;
 var FIELD_ROW_MAX   = 14;
@@ -76,22 +84,8 @@ function collision(tr, tc){
   return ( ( inField(tr, tc) && field[tr][tc] != BLOCK_TYPE_NONE ) || !inField(tr, tc) );
 };
 
-/**
- * ハーピー積み
- */
-var AI = function(field) {
-  this.tr = FIELD_ROW_MAX - 1;
-  this.tc = 0;
-  this.rotate_num = 0;
-  this.rotate_cnt = 0;
-  this.field = field;
-  /**
-   * @param Puyopuyo puyopuyo
-   * @param int cr candicate row
-   * @param int cc candidate column
-   * @return evaluate value
-   */
-  this.evaluate = function(puyopuyo, tr, tc, rnum) {
+
+function evaluate0(puyopuyo, tr, tc, rnum) {
     var dc = [1, 0, -1, 0];
     var dr = [0, 1, 0, -1];
     var res = tr;
@@ -114,13 +108,62 @@ var AI = function(field) {
     }
     // なるだけ下に積める方が評価値が高いようにしている．
     return res;
-  };
+};
+
+function evaluate1(puyopuyo, tr_, tc_, rnum) {
+  var drs = [1, 0, -1, 0];
+  var dcs = [0, 1, 0, -1];
+  var res = 0;
+  var total_count = 0, hit_count = 0;
+  if ( puyopuyo[0].type == puyopuyo[1].type && rnum % 2 == 0 ) res += 500;
+  for ( var j = 0; j < puyopuyo.length; ++j ) {
+    var dr = puyopuyo[j].r - puyopuyo.center().r;
+    var dc = puyopuyo[j].c - puyopuyo.center().c;
+    tr = tr_ + dr, tc = tc_ + dc;
+    for ( var i = 0; i < rnum; ++i ) {
+      tr += -dr + dc;
+      tc += -dc - dr;
+    }
+    res += tr;
+    if ( collision(tr, tc) ) return -1;
+    for ( var i = 0; i < 4; ++i ) {
+      var nr = tr + drs[i];
+      var nc = tc + dcs[i];
+      if ( inField(nr, nc) ) {
+        ++total_count;
+        if ( puyopuyo[j].type == this.field[nr][nc] ) {
+          ++hit_count;
+          res += 1000;
+        }
+      }
+    }
+  }
+  // if ( hit_count == 0 ) res = 0;
+  return res;
+};
+
+/**
+ * ハーピー積み
+ */
+var AI = function(field) {
+  this.tr = FIELD_ROW_MAX - 1;
+  this.tc = 0;
+  this.rotate_num = 0;
+  this.rotate_cnt = 0;
+  this.field = field;
+  /**
+   * @param Puyopuyo puyopuyo
+   * @param int cr candicate row
+   * @param int cc candidate column
+   * @return evaluate value
+   */
+  this.evaluate = evaluate1;
   this.next = function(puyopuyo) {
     this.rotate_cnt = 0;
     var eval_max = 0;
     for ( var c = 0; c < FIELD_COL_MAX; ++c ) {
       for ( var r = FIELD_ROW_MAX - 1; r > 3; --r ) {
-        for ( var rnum = 0; rnum <= 2; rnum += 2 ) {
+        for ( var rnum = 0; rnum < 4; ++rnum ) {
           if ( this.field[r][c] == BLOCK_TYPE_NONE ) {
             var cur_eval = this.evaluate(puyopuyo, r, c, rnum);
             if ( eval_max < cur_eval ) {
@@ -142,9 +185,9 @@ var AI = function(field) {
     Input.release(KeyCode.Z);
     // 回転 -> 左右移動 -> 下移動の順に優先
     if ( this.rotate_cnt < this.rotate_num ) { Input.press(KeyCode.Z); ++this.rotate_cnt; }
-    if ( this.tc < puyopuyo[0].c && !puyopuyo.collision(0, -1) ) { Input.press(KeyCode.Left); }
-    else if ( puyopuyo[0].c < this.tc && !puyopuyo.collision(0, 1) ) { Input.press(KeyCode.Right); }
-    if ( puyopuyo[0].r < this.tr ) { Input.press(KeyCode.Down); }
+    if ( this.tc < puyopuyo.center().c && !puyopuyo.collision(0, -1) ) { Input.press(KeyCode.Left); }
+    else if ( puyopuyo.center().c < this.tc && !puyopuyo.collision(0, 1) ) { Input.press(KeyCode.Right); }
+    if ( puyopuyo.center().r < this.tr ) { Input.press(KeyCode.Down); }
   };
 };
 
@@ -204,15 +247,16 @@ $(function() {
       this[i].c = nc;
     }
     // 回転する
-    if ( Input.onPressed(KeyCode.Z) ){
-      for ( var i = 1; i < this.length; ++i ){
-        var dr = this[i].r - this.center().r;
-        var dc = this[i].c - this.center().c;
-        var nr = this[i].r - dr + dc;
-        var nc = this[i].c - dc - dr;
-        this[i].r = nr;
-        this[i].c = nc;
-      }
+    if ( Input.onPressed(KeyCode.Z) ) {
+      this.rotate();
+    }
+  };
+  puyopuyo.rotate = function() {
+    for ( var i = 1; i < this.length; ++i ){
+      var dr = this[i].r - this.center().r;
+      var dc = this[i].c - this.center().c;
+      this[i].r += - dr + dc;
+      this[i].c += - dc - dr;
     }
   };
   puyopuyo.collision = function(dr, dc) {

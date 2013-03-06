@@ -6,7 +6,7 @@
 //  Copyright (c) 2013 nishimori-m. All rights reserved.
 //
 
-var FPS = 30;
+var FPS = 60;
 var FIELD_COL_MAX   = 6;
 var FIELD_ROW_MAX   = 14;
 var CELL_SIZE     = 24;
